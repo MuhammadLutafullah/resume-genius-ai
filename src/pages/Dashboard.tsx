@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { extractTextFromPDF } from "@/lib/pdf";
-import { ANALYSIS_LABELS, AnalysisType, extractPercentage, getLLMResponse } from "@/lib/ats";
+import { ANALYSIS_LABELS, AnalysisType, extractPercentage } from "@/lib/ats";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -22,6 +22,60 @@ const ACTIONS: { type: AnalysisType; label: string; icon: any; desc: string }[] 
 ];
 
 type Result = { type: AnalysisType; content: string; score: number | null };
+
+const PROMPTS: Record<AnalysisType, string> = {
+  analyze: `You are an experienced Technical Human Resource Manager, your task is to review the provided resume against the job description. 
+Please share your professional evaluation on whether the candidate's profile aligns with the role. 
+Highlight the strengths and weaknesses of the applicant in relation to the specified job requirements.`,
+  improve: `You are an Technical Human Resource Manager with expertise in data science, 
+your role is to scrutinize the resume in light of the job description provided. 
+Share your insights on the candidate's suitability for the role from an HR perspective. 
+Additionally, offer advice on enhancing the candidate's skills and identify areas where improvement is needed.`,
+  keywords: `You are an skilled ATS (Applicant Tracking System) scanner with a deep understanding of data science and ATS functionality, 
+your task is to evaluate the resume against the provided job description. As a Human Resource manager,
+assess the compatibility of the resume with the role. Give me what are the keywords that are missing
+Also, provide recommendations for enhancing the candidate's skills and identify which areas require further development.`,
+  match: `You are a skilled ATS (Applicant Tracking System) scanner with a deep understanding of data science and ATS functionality. 
+Your task is to evaluate the resume against the provided job description. Give me the percentage match of the resume to the job description. 
+First, provide the percentage in numbers, then list the missing keywords, and finally provide your thoughts.`
+};
+
+const getLLMResponseLocal = async (jobDescription: string, cvContent: string, type: AnalysisType) => {
+  const prompt = PROMPTS[type];
+  const fullPrompt = `
+Job Description:
+${jobDescription}
+
+Resume/CV:
+${cvContent}
+
+Instruction:
+${prompt}
+`;
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": window.location.origin,
+      "X-Title": "ATS System"
+    },
+    body: JSON.stringify({
+      model: "meta-llama/llama-3-8b-instruct",
+      messages: [{ role: "user", content: fullPrompt }],
+      temperature: 0.7,
+      max_tokens: 1000
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error: ${response.statusText}\n\nPlease check your API key or try again later.`);
+  }
+
+  const result = await response.json();
+  return result.choices[0].message.content;
+};
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
@@ -77,7 +131,7 @@ export default function Dashboard() {
     setBusy(type);
     setResult(null);
     try {
-      const content = await getLLMResponse(jd, cvText, type);
+      const content = await getLLMResponseLocal(jd, cvText, type);
       const score = type === "match" ? extractPercentage(content) : null;
       setResult({ type, content, score });
 
