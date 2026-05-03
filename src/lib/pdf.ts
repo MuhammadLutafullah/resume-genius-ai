@@ -1,6 +1,6 @@
 // PDF text extraction using pdf.js
 import * as pdfjsLib from "pdfjs-dist";
-// @ts-expect-error - vite worker import
+// @ts-ignore - vite ?url worker import has no types
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
