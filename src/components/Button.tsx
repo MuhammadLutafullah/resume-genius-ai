@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, ReactNode } from "react";
 import { motion, HTMLMotionProps } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -6,10 +6,11 @@ import { cn } from "@/lib/utils";
 type Variant = "primary" | "accent" | "outline" | "ghost" | "destructive" | "subtle";
 type Size = "sm" | "md" | "lg" | "icon";
 
-interface ButtonProps extends Omit<HTMLMotionProps<"button">, "ref"> {
+interface ButtonProps extends Omit<HTMLMotionProps<"button">, "ref" | "children"> {
   variant?: Variant;
   size?: Size;
   loading?: boolean;
+  children?: ReactNode;
 }
 
 const variants: Record<Variant, string> = {
